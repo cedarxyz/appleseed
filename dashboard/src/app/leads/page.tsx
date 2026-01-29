@@ -292,11 +292,13 @@ export default function LeadsPage() {
                         onClick={() => setSelectedProspect(p)}
                       >
                         <td className="px-4 py-3">
-                          <img
-                            src={`https://avatars.githubusercontent.com/u/${p.githubId}?s=40`}
-                            alt={p.username}
-                            className="w-10 h-10 rounded-full bg-[#1a1a2e] object-cover"
-                          />
+                          <div className="w-10 h-10 rounded-full bg-[#1a1a2e] overflow-hidden flex-shrink-0">
+                            <img
+                              src={`https://avatars.githubusercontent.com/u/${p.githubId}?s=80`}
+                              alt={p.username}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-[#00f0ff] font-medium">{p.username}</span>
