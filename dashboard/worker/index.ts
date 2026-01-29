@@ -169,6 +169,152 @@ app.get("/api/stats", async (c) => {
   }
 });
 
+// List all prospects with filtering, sorting, pagination
+app.get("/api/prospects", async (c) => {
+  const db = c.env.DB;
+
+  try {
+    const { tier, outreach, airdrop, search, sort, order, limit, offset } = c.req.query();
+
+    let query = "SELECT * FROM prospects WHERE 1=1";
+    const params: (string | number)[] = [];
+
+    // Filters
+    if (tier) {
+      query += " AND tier = ?";
+      params.push(tier);
+    }
+    if (outreach) {
+      query += " AND outreach_status = ?";
+      params.push(outreach);
+    }
+    if (airdrop) {
+      query += " AND airdrop_status = ?";
+      params.push(airdrop);
+    }
+    if (search) {
+      query += " AND github_username LIKE ?";
+      params.push(`%${search}%`);
+    }
+
+    // Sorting
+    const sortColumn = sort || "score";
+    const sortOrder = order === "asc" ? "ASC" : "DESC";
+    const allowedColumns = ["score", "tier", "github_username", "outreach_status", "airdrop_status", "created_at"];
+    if (allowedColumns.includes(sortColumn)) {
+      query += ` ORDER BY ${sortColumn} ${sortOrder}`;
+    } else {
+      query += " ORDER BY score DESC";
+    }
+
+    // Pagination
+    const limitNum = Math.min(parseInt(limit || "50", 10), 500);
+    const offsetNum = parseInt(offset || "0", 10);
+    query += " LIMIT ? OFFSET ?";
+    params.push(limitNum, offsetNum);
+
+    const results = await db.prepare(query).bind(...params).all();
+
+    // Get total count for pagination
+    let countQuery = "SELECT COUNT(*) as count FROM prospects WHERE 1=1";
+    const countParams: (string | number)[] = [];
+    if (tier) {
+      countQuery += " AND tier = ?";
+      countParams.push(tier);
+    }
+    if (outreach) {
+      countQuery += " AND outreach_status = ?";
+      countParams.push(outreach);
+    }
+    if (airdrop) {
+      countQuery += " AND airdrop_status = ?";
+      countParams.push(airdrop);
+    }
+    if (search) {
+      countQuery += " AND github_username LIKE ?";
+      countParams.push(`%${search}%`);
+    }
+
+    const totalResult = await db.prepare(countQuery).bind(...countParams).first<{ count: number }>();
+
+    return c.json({
+      prospects: (results.results || []).map((p: Record<string, unknown>) => ({
+        id: p.id,
+        username: p.github_username,
+        githubId: p.github_id,
+        email: p.email,
+        repos: p.repos_json ? JSON.parse(p.repos_json as string) : [],
+        score: p.score,
+        tier: p.tier,
+        discoveredVia: p.discovered_via,
+        outreachStatus: p.outreach_status,
+        targetRepo: p.target_repo,
+        prUrl: p.pr_url,
+        prNumber: p.pr_number,
+        stacksAddress: p.stacks_address,
+        verified: Boolean(p.address_valid),
+        airdropStatus: p.airdrop_status,
+        airdropTxid: p.airdrop_txid,
+        airdropAmountSats: p.airdrop_amount_sats,
+        yieldEnrolled: Boolean(p.yield_enrolled),
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+      })),
+      total: totalResult?.count ?? 0,
+      limit: limitNum,
+      offset: offsetNum,
+    });
+  } catch (error) {
+    console.error("Failed to fetch prospects:", error);
+    return c.json({ error: "Failed to fetch prospects", prospects: [], total: 0 }, 500);
+  }
+});
+
+// Get single prospect by ID
+app.get("/api/prospects/:id", async (c) => {
+  const db = c.env.DB;
+  const id = c.req.param("id");
+
+  try {
+    const result = await db.prepare("SELECT * FROM prospects WHERE id = ?").bind(id).first();
+
+    if (!result) {
+      return c.json({ error: "Prospect not found" }, 404);
+    }
+
+    const p = result as Record<string, unknown>;
+    return c.json({
+      id: p.id,
+      username: p.github_username,
+      githubId: p.github_id,
+      email: p.email,
+      repos: p.repos_json ? JSON.parse(p.repos_json as string) : [],
+      score: p.score,
+      tier: p.tier,
+      discoveredVia: p.discovered_via,
+      outreachStatus: p.outreach_status,
+      targetRepo: p.target_repo,
+      prUrl: p.pr_url,
+      prNumber: p.pr_number,
+      prOpenedAt: p.pr_opened_at,
+      stacksAddress: p.stacks_address,
+      verified: Boolean(p.address_valid),
+      verifiedAt: p.verified_at,
+      airdropStatus: p.airdrop_status,
+      airdropTxid: p.airdrop_txid,
+      airdropAmountSats: p.airdrop_amount_sats,
+      airdropSentAt: p.airdrop_sent_at,
+      yieldEnrolled: Boolean(p.yield_enrolled),
+      yieldProtocol: p.yield_protocol,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    });
+  } catch (error) {
+    console.error("Failed to fetch prospect:", error);
+    return c.json({ error: "Failed to fetch prospect" }, 500);
+  }
+});
+
 // Sync endpoint - receives data from CLI
 app.post("/api/sync", async (c) => {
   const db = c.env.DB;

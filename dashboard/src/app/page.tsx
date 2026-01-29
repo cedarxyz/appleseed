@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 interface Stats {
   totalProspects: number;
@@ -142,11 +143,19 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold tracking-tight">Appleseed</h1>
           <p className="text-[#6a6a8a] text-sm">Distribution Engine for Bitcoin AI Agents</p>
         </div>
-        {isDemo && (
-          <span className="px-3 py-1 text-xs bg-[#ffcc00]/10 text-[#ffcc00] border border-[#ffcc00]/30 rounded">
-            Demo Data
-          </span>
-        )}
+        <div className="flex items-center gap-4">
+          <Link
+            href="/leads"
+            className="px-4 py-2 bg-[#0d0d14] border border-[#1a1a2e] rounded text-sm hover:border-[#00f0ff] transition-colors"
+          >
+            View All Leads →
+          </Link>
+          {isDemo && (
+            <span className="px-3 py-1 text-xs bg-[#ffcc00]/10 text-[#ffcc00] border border-[#ffcc00]/30 rounded">
+              Demo Data
+            </span>
+          )}
+        </div>
       </header>
 
       {/* Pipeline Overview - The Main Story */}
