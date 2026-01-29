@@ -3,12 +3,21 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 
+interface Repo {
+  name: string;
+  fullName: string;
+  url: string;
+  stars: number;
+  description: string;
+  language: string;
+}
+
 interface Prospect {
   id: number;
   username: string;
   githubId: number;
   email: string | null;
-  repos: string[];
+  repos: Repo[];
   score: number;
   tier: string | null;
   discoveredVia: string | null;
@@ -506,12 +515,12 @@ function ProspectDetail({ prospect, onClose }: { prospect: Prospect; onClose: ()
               {prospect.repos.map((repo, i) => (
                 <a
                   key={i}
-                  href={`https://github.com/${repo}`}
+                  href={repo.url || `https://github.com/${repo.fullName}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-2 py-1 bg-[#0a0a0f] border border-[#1a1a2e] rounded text-xs text-[#00f0ff] hover:border-[#00f0ff]"
                 >
-                  {repo}
+                  {repo.fullName || repo.name}
                 </a>
               ))}
             </div>
