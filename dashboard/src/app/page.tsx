@@ -148,7 +148,13 @@ export default function Dashboard() {
             href="/leads"
             className="px-4 py-2 bg-[#0d0d14] border border-[#1a1a2e] rounded text-sm hover:border-[#00f0ff] transition-colors"
           >
-            View All Leads →
+            Leads CRM
+          </Link>
+          <Link
+            href="/airdrops"
+            className="px-4 py-2 bg-[#0d0d14] border border-[#f7931a]/30 rounded text-sm hover:border-[#f7931a] transition-colors text-[#f7931a]"
+          >
+            Airdrop Feed
           </Link>
           {isDemo && (
             <span className="px-3 py-1 text-xs bg-[#ffcc00]/10 text-[#ffcc00] border border-[#ffcc00]/30 rounded">

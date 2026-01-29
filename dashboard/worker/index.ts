@@ -315,6 +315,56 @@ app.get("/api/prospects/:id", async (c) => {
   }
 });
 
+// Get airdrops feed
+app.get("/api/airdrops", async (c) => {
+  const db = c.env.DB;
+
+  try {
+    const { limit, offset } = c.req.query();
+    const limitNum = Math.min(parseInt(limit || "100", 10), 500);
+    const offsetNum = parseInt(offset || "0", 10);
+
+    // Get airdrops that have been sent or confirmed
+    const results = await db.prepare(`
+      SELECT id, github_username, github_id, stacks_address, airdrop_status,
+             airdrop_txid, airdrop_amount_sats, airdrop_sent_at
+      FROM prospects
+      WHERE airdrop_status IN ('sent', 'confirmed')
+      ORDER BY airdrop_sent_at DESC
+      LIMIT ? OFFSET ?
+    `).bind(limitNum, offsetNum).all();
+
+    // Get totals
+    const totals = await db.prepare(`
+      SELECT
+        COUNT(*) as count,
+        SUM(airdrop_amount_sats) as total_sats
+      FROM prospects
+      WHERE airdrop_status IN ('sent', 'confirmed')
+    `).first<{ count: number; total_sats: number }>();
+
+    return c.json({
+      airdrops: (results.results || []).map((a: Record<string, unknown>) => ({
+        id: a.id,
+        username: a.github_username,
+        githubId: a.github_id,
+        stacksAddress: a.stacks_address,
+        status: a.airdrop_status,
+        txid: a.airdrop_txid,
+        amountSats: a.airdrop_amount_sats,
+        sentAt: a.airdrop_sent_at,
+      })),
+      totalCount: totals?.count ?? 0,
+      totalSats: totals?.total_sats ?? 0,
+      limit: limitNum,
+      offset: offsetNum,
+    });
+  } catch (error) {
+    console.error("Failed to fetch airdrops:", error);
+    return c.json({ error: "Failed to fetch airdrops", airdrops: [], totalCount: 0, totalSats: 0 }, 500);
+  }
+});
+
 // Sync endpoint - receives data from CLI
 app.post("/api/sync", async (c) => {
   const db = c.env.DB;
