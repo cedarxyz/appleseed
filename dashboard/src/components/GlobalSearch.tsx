@@ -147,11 +147,13 @@ export function GlobalSearch() {
                   }}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-[#1a1a2e] transition-colors"
                 >
-                  <img
-                    src={`https://avatars.githubusercontent.com/u/${result.githubId}?s=32`}
-                    alt={result.username}
-                    className="w-8 h-8 rounded-full bg-[#1a1a2e]"
-                  />
+                  <div className="w-8 h-8 rounded-full bg-[#1a1a2e] overflow-hidden flex-shrink-0">
+                    <img
+                      src={`https://avatars.githubusercontent.com/u/${result.githubId}?s=64`}
+                      alt={result.username}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-white truncate">
                       {result.username}

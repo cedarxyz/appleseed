@@ -167,11 +167,13 @@ export default function PRsPage() {
                   return (
                     <tr key={pr.id} className="border-b border-[#1a1a2e] last:border-0 hover:bg-[#0a0a0f]">
                       <td className="px-4 py-3">
-                        <img
-                          src={`https://avatars.githubusercontent.com/u/${pr.githubId}?s=32`}
-                          alt={pr.username}
-                          className="w-8 h-8 rounded-full bg-[#1a1a2e]"
-                        />
+                        <div className="w-8 h-8 rounded-full bg-[#1a1a2e] overflow-hidden flex-shrink-0">
+                          <img
+                            src={`https://avatars.githubusercontent.com/u/${pr.githubId}?s=64`}
+                            alt={pr.username}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <a

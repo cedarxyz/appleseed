@@ -402,11 +402,13 @@ function ProspectDetail({ prospect, onClose }: { prospect: Prospect; onClose: ()
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-center gap-4">
-          <img
-            src={`https://avatars.githubusercontent.com/u/${prospect.githubId}?s=80`}
-            alt={prospect.username}
-            className="w-16 h-16 rounded-full bg-[#1a1a2e]"
-          />
+          <div className="w-16 h-16 rounded-full bg-[#1a1a2e] overflow-hidden flex-shrink-0">
+            <img
+              src={`https://avatars.githubusercontent.com/u/${prospect.githubId}?s=128`}
+              alt={prospect.username}
+              className="w-full h-full object-cover"
+            />
+          </div>
           <div>
             <h2 className="text-xl font-bold">{prospect.username}</h2>
             <a

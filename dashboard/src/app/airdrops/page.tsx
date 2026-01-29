@@ -142,11 +142,13 @@ export default function AirdropsPage() {
               >
                 <div className="flex items-center gap-4">
                   {/* Avatar */}
-                  <img
-                    src={`https://avatars.githubusercontent.com/u/${airdrop.githubId}?s=48`}
-                    alt={airdrop.username}
-                    className="w-12 h-12 rounded-full bg-[#1a1a2e] flex-shrink-0"
-                  />
+                  <div className="w-12 h-12 rounded-full bg-[#1a1a2e] overflow-hidden flex-shrink-0">
+                    <img
+                      src={`https://avatars.githubusercontent.com/u/${airdrop.githubId}?s=96`}
+                      alt={airdrop.username}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
