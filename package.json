@@ -1,0 +1,29 @@
+{
+  "name": "appleseedv2",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx tsx src/index.ts",
+    "scan": "npx tsx src/index.ts scan",
+    "qualify": "npx tsx src/index.ts qualify",
+    "outreach": "npx tsx src/index.ts outreach",
+    "verify": "npx tsx src/index.ts verify",
+    "airdrop": "npx tsx src/index.ts airdrop",
+    "status": "npx tsx src/index.ts status",
+    "stats": "npx tsx src/index.ts stats",
+    "init-db": "npx tsx scripts/init-db.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "dotenv": "^17.2.3",
+    "x402-stacks": "^1.1.1"
+  },
+  "devDependencies": {
+    "@stacks/wallet-sdk": "^7.2.0",
+    "@types/better-sqlite3": "^7.6.11",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.0"
+  }
+}

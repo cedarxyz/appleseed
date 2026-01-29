@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "appleseed-api",
+  "compatibility_date": "2025-01-01",
+  "main": "worker/index.ts",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "appleseed-db",
+      "database_id": "7bb469d9-4393-4b9e-a3a1-9eb73457c674"
+    }
+  ]
+}
