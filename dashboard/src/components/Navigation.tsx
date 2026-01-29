@@ -10,7 +10,6 @@ const navItems = [
   { href: "/prs", label: "PRs", icon: "📬" },
   { href: "/airdrops", label: "Airdrops", icon: "💰" },
   { href: "/treasury", label: "Treasury", icon: "🏦" },
-  { href: "/analytics", label: "Analytics", icon: "📈" },
   { href: "/activity", label: "Activity", icon: "⚡" },
 ];
 
