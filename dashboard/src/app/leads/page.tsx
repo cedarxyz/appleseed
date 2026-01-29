@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 
 interface Repo {
   name: string;
@@ -131,26 +130,43 @@ export default function LeadsPage() {
 
   const totalPages = Math.ceil(total / limit);
 
+  // CSV Export
+  const handleExport = () => {
+    const params = new URLSearchParams();
+    if (tierFilter) params.set("tier", tierFilter);
+    if (outreachFilter) params.set("outreach", outreachFilter);
+    if (airdropFilter) params.set("airdrop", airdropFilter);
+
+    window.open(`${API_URL}/api/prospects/export?${params}`, "_blank");
+  };
+
+  // Batch selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  const toggleSelect = (id: number) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === prospects.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(prospects.map(p => p.id)));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
-      {/* Header */}
-      <header className="border-b border-[#1a1a2e] px-8 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-[#6a6a8a] hover:text-white text-sm">
-              ← Dashboard
-            </Link>
-            <h1 className="text-xl font-bold">Leads CRM</h1>
-          </div>
-          <div className="text-sm text-[#6a6a8a]">
-            {total.toLocaleString()} total prospects
-          </div>
-        </div>
-      </header>
-
-      {/* Filters */}
-      <div className="border-b border-[#1a1a2e] px-8 py-4">
-        <div className="flex flex-wrap items-center gap-4">
+      {/* Filters & Actions Bar */}
+      <div className="border-b border-[#1a1a2e] px-4 md:px-8 py-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2 md:gap-4">
           {/* Search */}
           <input
             type="text"
@@ -211,14 +227,51 @@ export default function LeadsPage() {
               }}
               className="text-sm text-[#ff3366] hover:underline"
             >
-              Clear filters
+              Clear
             </button>
           )}
+          </div>
+
+          {/* Right side: Count + Export */}
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-[#6a6a8a]">
+              {total.toLocaleString()} prospects
+            </span>
+            <button
+              onClick={handleExport}
+              className="px-3 py-1.5 bg-[#0d0d14] border border-[#1a1a2e] rounded text-sm hover:border-[#00f0ff] transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export CSV
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* Batch Actions Bar */}
+      {selectedIds.size > 0 && (
+        <div className="bg-[#00f0ff]/10 border-b border-[#00f0ff]/30 px-4 md:px-8 py-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-[#00f0ff]">
+              {selectedIds.size} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="px-3 py-1 text-sm text-[#6a6a8a] hover:text-white"
+              >
+                Clear selection
+              </button>
+              {/* Add more batch actions here as needed */}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
-      <div className="px-8 py-6">
+      <div className="px-4 md:px-8 py-6">
         {loading ? (
           <div className="text-center py-12 text-[#6a6a8a]">Loading...</div>
         ) : prospects.length === 0 ? (
@@ -229,7 +282,15 @@ export default function LeadsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#1a1a2e] text-left text-xs text-[#6a6a8a] uppercase">
-                    <th className="px-4 py-3 w-16"></th>
+                    <th className="px-4 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.size === prospects.length && prospects.length > 0}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded border-[#1a1a2e] bg-[#0d0d14] text-[#00f0ff] focus:ring-[#00f0ff] focus:ring-offset-0"
+                      />
+                    </th>
+                    <th className="px-4 py-3 w-12"></th>
                     <th
                       className="px-4 py-3 cursor-pointer hover:text-white"
                       onClick={() => handleSort("github_username")}
@@ -237,32 +298,32 @@ export default function LeadsPage() {
                       Developer {sortBy === "github_username" && (sortOrder === "asc" ? "↑" : "↓")}
                     </th>
                     <th
-                      className="px-4 py-3 cursor-pointer hover:text-white"
+                      className="px-4 py-3 cursor-pointer hover:text-white hidden md:table-cell"
                       onClick={() => handleSort("tier")}
                     >
                       Tier {sortBy === "tier" && (sortOrder === "asc" ? "↑" : "↓")}
                     </th>
                     <th
-                      className="px-4 py-3 cursor-pointer hover:text-white"
+                      className="px-4 py-3 cursor-pointer hover:text-white hidden md:table-cell"
                       onClick={() => handleSort("score")}
                     >
                       Score {sortBy === "score" && (sortOrder === "asc" ? "↑" : "↓")}
                     </th>
                     <th
-                      className="px-4 py-3 cursor-pointer hover:text-white"
+                      className="px-4 py-3 cursor-pointer hover:text-white hidden lg:table-cell"
                       onClick={() => handleSort("outreach_status")}
                     >
                       Outreach {sortBy === "outreach_status" && (sortOrder === "asc" ? "↑" : "↓")}
                     </th>
                     <th
-                      className="px-4 py-3 cursor-pointer hover:text-white"
+                      className="px-4 py-3 cursor-pointer hover:text-white hidden lg:table-cell"
                       onClick={() => handleSort("airdrop_status")}
                     >
                       Airdrop {sortBy === "airdrop_status" && (sortOrder === "asc" ? "↑" : "↓")}
                     </th>
-                    <th className="px-4 py-3">Verified</th>
+                    <th className="px-4 py-3 hidden xl:table-cell">Verified</th>
                     <th
-                      className="px-4 py-3 cursor-pointer hover:text-white"
+                      className="px-4 py-3 cursor-pointer hover:text-white hidden xl:table-cell"
                       onClick={() => handleSort("created_at")}
                     >
                       Added {sortBy === "created_at" && (sortOrder === "asc" ? "↑" : "↓")}
@@ -276,20 +337,29 @@ export default function LeadsPage() {
                     return (
                       <tr
                         key={p.id}
-                        className="border-b border-[#1a1a2e] hover:bg-[#0d0d14] cursor-pointer transition-colors"
-                        onClick={() => setSelectedProspect(p)}
+                        className={`border-b border-[#1a1a2e] hover:bg-[#0d0d14] cursor-pointer transition-colors ${
+                          selectedIds.has(p.id) ? "bg-[#00f0ff]/5" : ""
+                        }`}
                       >
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(p.id)}
+                            onChange={() => toggleSelect(p.id)}
+                            className="w-4 h-4 rounded border-[#1a1a2e] bg-[#0d0d14] text-[#00f0ff] focus:ring-[#00f0ff] focus:ring-offset-0"
+                          />
+                        </td>
+                        <td className="px-4 py-3" onClick={() => setSelectedProspect(p)}>
                           <img
                             src={`https://avatars.githubusercontent.com/u/${p.githubId}?s=40`}
                             alt={p.username}
                             className="w-8 h-8 rounded-full bg-[#1a1a2e]"
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" onClick={() => setSelectedProspect(p)}>
                           <span className="text-[#00f0ff] font-medium">{p.username}</span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 hidden md:table-cell" onClick={() => setSelectedProspect(p)}>
                           {p.tier ? (
                             <span
                               className="px-2 py-0.5 rounded text-xs font-medium"
@@ -304,25 +374,25 @@ export default function LeadsPage() {
                             <span className="text-[#6a6a8a] text-xs">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm">{p.score}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-sm hidden md:table-cell" onClick={() => setSelectedProspect(p)}>{p.score}</td>
+                        <td className="px-4 py-3 hidden lg:table-cell" onClick={() => setSelectedProspect(p)}>
                           <span className="text-xs" style={{ color: outreach.color }}>
                             {outreach.label}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 hidden lg:table-cell" onClick={() => setSelectedProspect(p)}>
                           <span className="text-xs" style={{ color: airdrop.color }}>
                             {airdrop.label}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 hidden xl:table-cell" onClick={() => setSelectedProspect(p)}>
                           {p.verified ? (
                             <span className="text-[#00ff88]">✓</span>
                           ) : (
                             <span className="text-[#6a6a8a]">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-[#6a6a8a]">
+                        <td className="px-4 py-3 text-sm text-[#6a6a8a] hidden xl:table-cell" onClick={() => setSelectedProspect(p)}>
                           {new Date(p.createdAt).toLocaleDateString()}
                         </td>
                       </tr>

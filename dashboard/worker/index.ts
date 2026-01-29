@@ -365,6 +365,361 @@ app.get("/api/airdrops", async (c) => {
   }
 });
 
+// Treasury endpoint - fetches live balance from Stacks API
+app.get("/api/treasury", async (c) => {
+  const db = c.env.DB;
+  const TREASURY_ADDRESS = "SP1YDWNBQ83KZS18VRV5Y1WJPREJPMHTZR6CGG522";
+  const SBTC_CONTRACT = "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token";
+
+  try {
+    // Fetch sBTC balance from Stacks API
+    const balanceRes = await fetch(
+      `https://api.mainnet.hiro.so/extended/v1/address/${TREASURY_ADDRESS}/balances`
+    );
+    const balanceData = await balanceRes.json() as {
+      stx: { balance: string };
+      fungible_tokens: Record<string, { balance: string }>;
+    };
+
+    const stxBalance = parseInt(balanceData.stx?.balance || "0", 10);
+    const sbtcBalance = parseInt(
+      balanceData.fungible_tokens?.[`${SBTC_CONTRACT}::sbtc-token`]?.balance || "0",
+      10
+    );
+
+    // Get pending airdrop obligations
+    const pending = await db.prepare(`
+      SELECT COUNT(*) as count, COALESCE(SUM(
+        CASE tier
+          WHEN 'A' THEN 10000
+          WHEN 'B' THEN 5000
+          WHEN 'C' THEN 2500
+          ELSE 0
+        END
+      ), 0) as total_sats
+      FROM prospects
+      WHERE address_valid = 1 AND airdrop_status = 'pending'
+    `).first<{ count: number; total_sats: number }>();
+
+    // Get total airdropped
+    const airdropped = await db.prepare(`
+      SELECT COALESCE(SUM(airdrop_amount_sats), 0) as total
+      FROM prospects
+      WHERE airdrop_status IN ('sent', 'confirmed')
+    `).first<{ total: number }>();
+
+    // Get recent transactions from Stacks API
+    const txRes = await fetch(
+      `https://api.mainnet.hiro.so/extended/v1/address/${TREASURY_ADDRESS}/transactions?limit=10`
+    );
+    const txData = await txRes.json() as {
+      results: Array<{
+        tx_id: string;
+        tx_type: string;
+        tx_status: string;
+        block_time: number;
+        sender_address: string;
+        token_transfer?: { amount: string; recipient_address: string };
+      }>;
+    };
+
+    const transactions = (txData.results || []).map((tx) => ({
+      txid: tx.tx_id,
+      type: tx.tx_type,
+      status: tx.tx_status,
+      timestamp: tx.block_time ? new Date(tx.block_time * 1000).toISOString() : null,
+      sender: tx.sender_address,
+      amount: tx.token_transfer?.amount,
+      recipient: tx.token_transfer?.recipient_address,
+    }));
+
+    return c.json({
+      address: TREASURY_ADDRESS,
+      stxBalance,
+      sbtcBalance,
+      pendingAirdrops: pending?.count ?? 0,
+      pendingObligationSats: pending?.total_sats ?? 0,
+      totalAirdroppedSats: airdropped?.total ?? 0,
+      transactions,
+      lowBalanceAlert: sbtcBalance < (pending?.total_sats ?? 0),
+    });
+  } catch (error) {
+    console.error("Failed to fetch treasury:", error);
+    return c.json({ error: "Failed to fetch treasury data" }, 500);
+  }
+});
+
+// Activity log endpoint
+app.get("/api/activity", async (c) => {
+  const db = c.env.DB;
+
+  try {
+    const { limit, offset } = c.req.query();
+    const limitNum = Math.min(parseInt(limit || "50", 10), 200);
+    const offsetNum = parseInt(offset || "0", 10);
+
+    const results = await db.prepare(`
+      SELECT * FROM activity_log
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `).bind(limitNum, offsetNum).all();
+
+    const total = await db.prepare("SELECT COUNT(*) as count FROM activity_log").first<{ count: number }>();
+
+    return c.json({
+      activities: (results.results || []).map((a: Record<string, unknown>) => ({
+        id: a.id,
+        action: a.action,
+        prospectId: a.prospect_id,
+        details: a.details ? JSON.parse(a.details as string) : null,
+        createdAt: a.created_at,
+      })),
+      total: total?.count ?? 0,
+      limit: limitNum,
+      offset: offsetNum,
+    });
+  } catch (error) {
+    console.error("Failed to fetch activity:", error);
+    return c.json({ activities: [], total: 0, error: "Failed to fetch activity" }, 500);
+  }
+});
+
+// Analytics endpoint - time series data
+app.get("/api/analytics", async (c) => {
+  const db = c.env.DB;
+
+  try {
+    // Get prospects by day (last 30 days)
+    const prospectsByDay = await db.prepare(`
+      SELECT DATE(created_at) as date, COUNT(*) as count
+      FROM prospects
+      WHERE created_at >= DATE('now', '-30 days')
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+    `).all<{ date: string; count: number }>();
+
+    // Get airdrops by day
+    const airdropsByDay = await db.prepare(`
+      SELECT DATE(airdrop_sent_at) as date, COUNT(*) as count, SUM(airdrop_amount_sats) as total_sats
+      FROM prospects
+      WHERE airdrop_sent_at IS NOT NULL AND airdrop_sent_at >= DATE('now', '-30 days')
+      GROUP BY DATE(airdrop_sent_at)
+      ORDER BY date ASC
+    `).all<{ date: string; count: number; total_sats: number }>();
+
+    // Get daily limits history
+    const dailyLimits = await db.prepare(`
+      SELECT * FROM daily_limits
+      ORDER BY date DESC
+      LIMIT 30
+    `).all<{ date: string; prs_opened: number; airdrops_sent: number }>();
+
+    // Get conversion funnel
+    const funnel = await db.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN tier IS NOT NULL AND tier != 'D' THEN 1 ELSE 0 END) as qualified,
+        SUM(CASE WHEN outreach_status IN ('pr_opened', 'pr_merged', 'pr_closed') THEN 1 ELSE 0 END) as contacted,
+        SUM(CASE WHEN address_valid = 1 THEN 1 ELSE 0 END) as verified,
+        SUM(CASE WHEN airdrop_status IN ('sent', 'confirmed') THEN 1 ELSE 0 END) as airdropped
+      FROM prospects
+    `).first<{ total: number; qualified: number; contacted: number; verified: number; airdropped: number }>();
+
+    // Get tier distribution
+    const tierDist = await db.prepare(`
+      SELECT tier, COUNT(*) as count
+      FROM prospects
+      WHERE tier IS NOT NULL
+      GROUP BY tier
+    `).all<{ tier: string; count: number }>();
+
+    return c.json({
+      prospectsByDay: prospectsByDay.results || [],
+      airdropsByDay: airdropsByDay.results || [],
+      dailyLimits: dailyLimits.results || [],
+      funnel: funnel || { total: 0, qualified: 0, contacted: 0, verified: 0, airdropped: 0 },
+      tierDistribution: tierDist.results || [],
+    });
+  } catch (error) {
+    console.error("Failed to fetch analytics:", error);
+    return c.json({ error: "Failed to fetch analytics" }, 500);
+  }
+});
+
+// PR tracking endpoint
+app.get("/api/prs", async (c) => {
+  const db = c.env.DB;
+
+  try {
+    const { status } = c.req.query();
+
+    let query = `
+      SELECT id, github_username, github_id, tier, score, target_repo, pr_url, pr_number,
+             pr_opened_at, outreach_status, stacks_address, address_valid
+      FROM prospects
+      WHERE pr_url IS NOT NULL
+    `;
+
+    if (status === "open") {
+      query += " AND outreach_status = 'pr_opened'";
+    } else if (status === "merged") {
+      query += " AND outreach_status = 'pr_merged'";
+    } else if (status === "closed") {
+      query += " AND outreach_status IN ('pr_closed', 'declined')";
+    }
+
+    query += " ORDER BY pr_opened_at DESC";
+
+    const results = await db.prepare(query).all();
+
+    // Calculate stats
+    const stats = await db.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN outreach_status = 'pr_opened' THEN 1 ELSE 0 END) as open,
+        SUM(CASE WHEN outreach_status = 'pr_merged' THEN 1 ELSE 0 END) as merged,
+        SUM(CASE WHEN outreach_status IN ('pr_closed', 'declined') THEN 1 ELSE 0 END) as closed
+      FROM prospects
+      WHERE pr_url IS NOT NULL
+    `).first<{ total: number; open: number; merged: number; closed: number }>();
+
+    return c.json({
+      prs: (results.results || []).map((p: Record<string, unknown>) => ({
+        id: p.id,
+        username: p.github_username,
+        githubId: p.github_id,
+        tier: p.tier,
+        score: p.score,
+        targetRepo: p.target_repo,
+        prUrl: p.pr_url,
+        prNumber: p.pr_number,
+        prOpenedAt: p.pr_opened_at,
+        status: p.outreach_status,
+        hasAddress: Boolean(p.stacks_address),
+        verified: Boolean(p.address_valid),
+      })),
+      stats: stats || { total: 0, open: 0, merged: 0, closed: 0 },
+    });
+  } catch (error) {
+    console.error("Failed to fetch PRs:", error);
+    return c.json({ error: "Failed to fetch PRs", prs: [], stats: { total: 0, open: 0, merged: 0, closed: 0 } }, 500);
+  }
+});
+
+// Global search endpoint
+app.get("/api/search", async (c) => {
+  const db = c.env.DB;
+
+  try {
+    const { q, limit } = c.req.query();
+    if (!q || q.length < 2) {
+      return c.json({ results: [] });
+    }
+
+    const limitNum = Math.min(parseInt(limit || "10", 10), 50);
+
+    const results = await db.prepare(`
+      SELECT id, github_username, github_id, tier, score, outreach_status, airdrop_status
+      FROM prospects
+      WHERE github_username LIKE ?
+      ORDER BY score DESC
+      LIMIT ?
+    `).bind(`%${q}%`, limitNum).all();
+
+    return c.json({
+      results: (results.results || []).map((p: Record<string, unknown>) => ({
+        id: p.id,
+        username: p.github_username,
+        githubId: p.github_id,
+        tier: p.tier,
+        score: p.score,
+        outreachStatus: p.outreach_status,
+        airdropStatus: p.airdrop_status,
+      })),
+    });
+  } catch (error) {
+    console.error("Search failed:", error);
+    return c.json({ results: [], error: "Search failed" }, 500);
+  }
+});
+
+// Update prospect notes/tags
+app.post("/api/prospects/:id/notes", async (c) => {
+  const db = c.env.DB;
+  const id = c.req.param("id");
+
+  try {
+    const body = await c.req.json<{ notes?: string; tags?: string[] }>();
+
+    await db.prepare(`
+      UPDATE prospects
+      SET notes = ?, tags = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(body.notes || null, body.tags ? JSON.stringify(body.tags) : null, id).run();
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Failed to update notes:", error);
+    return c.json({ error: "Failed to update notes" }, 500);
+  }
+});
+
+// Export prospects as CSV
+app.get("/api/prospects/export", async (c) => {
+  const db = c.env.DB;
+
+  try {
+    const { tier, outreach, airdrop } = c.req.query();
+
+    let query = "SELECT * FROM prospects WHERE 1=1";
+    const params: string[] = [];
+
+    if (tier) {
+      query += " AND tier = ?";
+      params.push(tier);
+    }
+    if (outreach) {
+      query += " AND outreach_status = ?";
+      params.push(outreach);
+    }
+    if (airdrop) {
+      query += " AND airdrop_status = ?";
+      params.push(airdrop);
+    }
+
+    query += " ORDER BY score DESC";
+
+    const results = await db.prepare(query).bind(...params).all();
+
+    // Build CSV
+    const headers = [
+      "id", "github_username", "email", "score", "tier", "outreach_status",
+      "airdrop_status", "stacks_address", "address_valid", "created_at"
+    ];
+
+    const rows = (results.results || []).map((p: Record<string, unknown>) =>
+      headers.map((h) => {
+        const val = p[h];
+        if (val === null || val === undefined) return "";
+        if (typeof val === "string" && val.includes(",")) return `"${val}"`;
+        return String(val);
+      }).join(",")
+    );
+
+    const csv = [headers.join(","), ...rows].join("\n");
+
+    return new Response(csv, {
+      headers: {
+        "Content-Type": "text/csv",
+        "Content-Disposition": `attachment; filename="prospects-${new Date().toISOString().split("T")[0]}.csv"`,
+      },
+    });
+  } catch (error) {
+    console.error("Export failed:", error);
+    return c.json({ error: "Export failed" }, 500);
+  }
+});
+
 // Sync endpoint - receives data from CLI
 app.post("/api/sync", async (c) => {
   const db = c.env.DB;

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 
 interface Airdrop {
   id: number;
@@ -92,24 +91,8 @@ export default function AirdropsPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
-      {/* Header */}
-      <header className="border-b border-[#1a1a2e] px-8 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-[#6a6a8a] hover:text-white text-sm">
-              ← Dashboard
-            </Link>
-            <h1 className="text-xl font-bold">Airdrop Feed</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-[#00ff88] rounded-full animate-pulse"></span>
-            <span className="text-sm text-[#6a6a8a]">Live</span>
-          </div>
-        </div>
-      </header>
-
       {/* Total Stats */}
-      <div className="px-8 py-8">
+      <div className="px-4 md:px-8 py-6">
         <div className="bg-gradient-to-br from-[#0d0d14] to-[#1a1a2e] border border-[#1a1a2e] rounded-xl p-8 text-center">
           <div className="text-sm text-[#6a6a8a] uppercase tracking-wider mb-2">
             Total sBTC Distributed
