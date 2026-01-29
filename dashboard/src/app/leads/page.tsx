@@ -140,27 +140,6 @@ export default function LeadsPage() {
     window.open(`${API_URL}/api/prospects/export?${params}`, "_blank");
   };
 
-  // Batch selection
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-
-  const toggleSelect = (id: number) => {
-    const newSelected = new Set(selectedIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedIds(newSelected);
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.size === prospects.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(prospects.map(p => p.id)));
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
       {/* Filters & Actions Bar */}
@@ -250,26 +229,6 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* Batch Actions Bar */}
-      {selectedIds.size > 0 && (
-        <div className="bg-[#00f0ff]/10 border-b border-[#00f0ff]/30 px-4 md:px-8 py-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-[#00f0ff]">
-              {selectedIds.size} selected
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSelectedIds(new Set())}
-                className="px-3 py-1 text-sm text-[#6a6a8a] hover:text-white"
-              >
-                Clear selection
-              </button>
-              {/* Add more batch actions here as needed */}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Table */}
       <div className="px-4 md:px-8 py-6">
         {loading ? (
@@ -282,15 +241,7 @@ export default function LeadsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#1a1a2e] text-left text-xs text-[#6a6a8a] uppercase">
-                    <th className="px-4 py-3 w-10">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.size === prospects.length && prospects.length > 0}
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 rounded border-[#1a1a2e] bg-[#0d0d14] text-[#00f0ff] focus:ring-[#00f0ff] focus:ring-offset-0"
-                      />
-                    </th>
-                    <th className="px-4 py-3 w-12"></th>
+                    <th className="px-4 py-3 w-14"></th>
                     <th
                       className="px-4 py-3 cursor-pointer hover:text-white"
                       onClick={() => handleSort("github_username")}
@@ -337,29 +288,20 @@ export default function LeadsPage() {
                     return (
                       <tr
                         key={p.id}
-                        className={`border-b border-[#1a1a2e] hover:bg-[#0d0d14] cursor-pointer transition-colors ${
-                          selectedIds.has(p.id) ? "bg-[#00f0ff]/5" : ""
-                        }`}
+                        className="border-b border-[#1a1a2e] hover:bg-[#0d0d14] cursor-pointer transition-colors"
+                        onClick={() => setSelectedProspect(p)}
                       >
-                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(p.id)}
-                            onChange={() => toggleSelect(p.id)}
-                            className="w-4 h-4 rounded border-[#1a1a2e] bg-[#0d0d14] text-[#00f0ff] focus:ring-[#00f0ff] focus:ring-offset-0"
-                          />
-                        </td>
-                        <td className="px-4 py-3" onClick={() => setSelectedProspect(p)}>
+                        <td className="px-4 py-3">
                           <img
                             src={`https://avatars.githubusercontent.com/u/${p.githubId}?s=40`}
                             alt={p.username}
-                            className="w-8 h-8 rounded-full bg-[#1a1a2e]"
+                            className="w-10 h-10 rounded-full bg-[#1a1a2e] object-cover"
                           />
                         </td>
-                        <td className="px-4 py-3" onClick={() => setSelectedProspect(p)}>
+                        <td className="px-4 py-3">
                           <span className="text-[#00f0ff] font-medium">{p.username}</span>
                         </td>
-                        <td className="px-4 py-3 hidden md:table-cell" onClick={() => setSelectedProspect(p)}>
+                        <td className="px-4 py-3 hidden md:table-cell">
                           {p.tier ? (
                             <span
                               className="px-2 py-0.5 rounded text-xs font-medium"
@@ -374,25 +316,25 @@ export default function LeadsPage() {
                             <span className="text-[#6a6a8a] text-xs">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm hidden md:table-cell" onClick={() => setSelectedProspect(p)}>{p.score}</td>
-                        <td className="px-4 py-3 hidden lg:table-cell" onClick={() => setSelectedProspect(p)}>
+                        <td className="px-4 py-3 text-sm hidden md:table-cell">{p.score}</td>
+                        <td className="px-4 py-3 hidden lg:table-cell">
                           <span className="text-xs" style={{ color: outreach.color }}>
                             {outreach.label}
                           </span>
                         </td>
-                        <td className="px-4 py-3 hidden lg:table-cell" onClick={() => setSelectedProspect(p)}>
+                        <td className="px-4 py-3 hidden lg:table-cell">
                           <span className="text-xs" style={{ color: airdrop.color }}>
                             {airdrop.label}
                           </span>
                         </td>
-                        <td className="px-4 py-3 hidden xl:table-cell" onClick={() => setSelectedProspect(p)}>
+                        <td className="px-4 py-3 hidden xl:table-cell">
                           {p.verified ? (
                             <span className="text-[#00ff88]">✓</span>
                           ) : (
                             <span className="text-[#6a6a8a]">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-[#6a6a8a] hidden xl:table-cell" onClick={() => setSelectedProspect(p)}>
+                        <td className="px-4 py-3 text-sm text-[#6a6a8a] hidden xl:table-cell">
                           {new Date(p.createdAt).toLocaleDateString()}
                         </td>
                       </tr>
